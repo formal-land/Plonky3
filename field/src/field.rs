@@ -135,7 +135,9 @@ pub trait PrimeCharacteristicRing:
     #[must_use]
     #[inline(always)]
     fn double(&self) -> Self {
-        self.clone() + self.clone()
+        // self.clone() + self.clone()
+        // We do this change to optimize printing
+        Self::TWO * self.clone()
     }
 
     /// The elementary function `halve(a) = a/2`.

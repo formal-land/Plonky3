@@ -1,7 +1,7 @@
 use core::array;
 use core::borrow::Borrow;
 
-use p3_air::{Air, AirBuilder, BaseAir};
+use p3_air::{Air, AirBuilder, BaseAir, LoggingAirBuilder};
 use p3_field::{PrimeCharacteristicRing, PrimeField64};
 use p3_matrix::Matrix;
 use p3_matrix::dense::RowMajorMatrix;
@@ -35,7 +35,7 @@ impl<F> BaseAir<F> for KeccakAir {
     }
 }
 
-impl<AB: AirBuilder> Air<AB> for KeccakAir {
+impl<AB: LoggingAirBuilder> Air<AB> for KeccakAir {
     #[inline]
     fn eval(&self, builder: &mut AB) {
         eval_round_flags(builder);
@@ -53,6 +53,7 @@ impl<AB: AirBuilder> Air<AB> for KeccakAir {
         let not_final_step = AB::Expr::ONE - final_step;
 
         // If this is the first step, the input A must match the preimage.
+        builder.log_in_constraints("preimage_a");
         for y in 0..5 {
             for x in 0..5 {
                 builder
@@ -64,6 +65,7 @@ impl<AB: AirBuilder> Air<AB> for KeccakAir {
         }
 
         // If this is not the final step, the local and next preimages must match.
+        builder.log_in_constraints("preimage_next_preimage");
         for y in 0..5 {
             for x in 0..5 {
                 builder
@@ -76,9 +78,11 @@ impl<AB: AirBuilder> Air<AB> for KeccakAir {
         }
 
         // The export flag must be 0 or 1.
+        builder.log_in_constraints("export_bool");
         builder.assert_bool(local.export.clone());
 
         // If this is not the final step, the export flag must be off.
+        builder.log_in_constraints("export_zero");
         builder
             .when(not_final_step.clone())
             .assert_zero(local.export.clone());
@@ -87,6 +91,7 @@ impl<AB: AirBuilder> Air<AB> for KeccakAir {
         // Note that if all entries of C are boolean, the arithmetic generalization
         // xor3 function only outputs 0, 1 and so this check also ensures that all
         // entries of C'[x, z] are boolean.
+        builder.log_in_constraints("c_c_prime");
         for x in 0..5 {
             builder.assert_bools(local.c[x].clone());
             builder.assert_zeros::<64, _>(array::from_fn(|z| {
@@ -106,6 +111,7 @@ impl<AB: AirBuilder> Air<AB> for KeccakAir {
         // It isn't required, but makes this check a bit cleaner.
         // We also check that all entries of A' are bools.
         // This has the side effect of also range checking the limbs of A.
+        builder.log_in_constraints("a_a_prime_c_c_prime");
         for y in 0..5 {
             for x in 0..5 {
                 let get_bit = |z: usize| {
@@ -133,6 +139,7 @@ impl<AB: AirBuilder> Air<AB> for KeccakAir {
         // xor_{i=0}^4 A'[x, i, z] = C'[x, z], so for each x, z,
         // diff * (diff - 2) * (diff - 4) = 0, where
         // diff = sum_{i=0}^4 A'[x, i, z] - C'[x, z]
+        builder.log_in_constraints("a_prime_c_prime");
         for x in 0..5 {
             let four = AB::Expr::TWO.double();
             builder.assert_zeros::<64, _>(array::from_fn(|z| {
@@ -145,6 +152,7 @@ impl<AB: AirBuilder> Air<AB> for KeccakAir {
         // A''[x, y] = xor(B[x, y], andn(B[x + 1, y], B[x + 2, y])).
         // As B is a rotation of A', all entries must be bools and so
         // this check also range checks A''.
+        builder.log_in_constraints("a_prime_prime");
         for y in 0..5 {
             for x in 0..5 {
                 let get_bit = |z| {
@@ -165,7 +173,9 @@ impl<AB: AirBuilder> Air<AB> for KeccakAir {
 
         // A'''[0, 0] = A''[0, 0] XOR RC
         // Check to ensure the bits of A''[0, 0] are boolean.
+        builder.log_in_constraints("a_prime_prime_0_0_bits_bools");
         builder.assert_bools(local.a_prime_prime_0_0_bits.clone());
+        builder.log_in_constraints("a_prime_prime_0_0_limbs");
         builder.assert_zeros::<U64_LIMBS, _>(array::from_fn(|limb| {
             let computed_a_prime_prime_0_0_limb = (limb * BITS_PER_LIMB
                 ..(limb + 1) * BITS_PER_LIMB)
@@ -187,6 +197,7 @@ impl<AB: AirBuilder> Air<AB> for KeccakAir {
             rc_bit_i.xor(&local.a_prime_prime_0_0_bits[i].clone().into())
         };
 
+        builder.log_in_constraints("a_prime_prime_prime_0_0_limbs");
         builder.assert_zeros::<U64_LIMBS, _>(array::from_fn(|limb| {
             let computed_a_prime_prime_prime_0_0_limb = (limb * BITS_PER_LIMB
                 ..(limb + 1) * BITS_PER_LIMB)
@@ -197,6 +208,7 @@ impl<AB: AirBuilder> Air<AB> for KeccakAir {
         }));
 
         // Enforce that this round's output equals the next round's input.
+        builder.log_in_constraints("a_prime_prime_prime_next_a");
         for x in 0..5 {
             for y in 0..5 {
                 builder

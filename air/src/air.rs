@@ -308,3 +308,7 @@ impl<AB: PermutationAirBuilder> PermutationAirBuilder for FilteredAirBuilder<'_,
         self.inner.permutation_randomness()
     }
 }
+
+pub trait LoggingAirBuilder: AirBuilder {
+    fn log_in_constraints(&mut self, message: &str);
+}
