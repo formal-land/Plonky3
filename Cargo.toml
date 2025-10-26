@@ -31,6 +31,7 @@ members = [
     "poseidon2",
     "poseidon2-air",
     "rescue",
+    "rocq_print",
     "sha256",
     "symmetric",
     "uni-stark",

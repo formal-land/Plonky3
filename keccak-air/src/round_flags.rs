@@ -1,7 +1,7 @@
 use core::array;
 use core::borrow::Borrow;
 
-use p3_air::AirBuilder;
+use p3_air::{AirBuilder, LoggingAirBuilder};
 use p3_matrix::Matrix;
 
 use crate::columns::KeccakCols;
@@ -19,7 +19,8 @@ use crate::{NUM_ROUNDS, NUM_ROUNDS_MIN_1};
 ///
 /// - `builder`: An `AirBuilder` used to express constraints on the AIR trace.
 #[inline]
-pub(crate) fn eval_round_flags<AB: AirBuilder>(builder: &mut AB) {
+pub(crate) fn eval_round_flags<AB: LoggingAirBuilder>(builder: &mut AB) {
+    builder.log_in_constraints("eval_round_flags");
     // Access the main trace matrix.
     let main = builder.main();
 
